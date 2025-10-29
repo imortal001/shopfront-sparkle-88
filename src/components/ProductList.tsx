@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Product } from '@/lib/productData';
+import { Product, ProductVariation } from '@/lib/productData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -82,6 +82,7 @@ export function ProductList({ products, onEdit, onDelete, onAdd }: ProductListPr
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Image</TableHead>
               <TableHead>Product</TableHead>
               <TableHead>SKU</TableHead>
               <TableHead>Category</TableHead>
@@ -94,11 +95,34 @@ export function ProductList({ products, onEdit, onDelete, onAdd }: ProductListPr
           <TableBody>
             {paginatedProducts.map((product) => (
               <TableRow key={product.id}>
-                <TableCell className="font-medium">{product.name}</TableCell>
+                <TableCell>
+                  <img 
+                    src={product.images[0]} 
+                    alt={product.name}
+                    className="w-12 h-12 object-cover rounded"
+                  />
+                </TableCell>
+                <TableCell>
+                  <div className="font-medium">{product.name}</div>
+                  {product.variations && product.variations.length > 0 && (
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {product.variations.length} variation{product.variations.length > 1 ? 's' : ''}
+                    </div>
+                  )}
+                </TableCell>
                 <TableCell>{product.sku}</TableCell>
                 <TableCell>{product.category}</TableCell>
-                <TableCell>${product.price.toFixed(2)}</TableCell>
-                <TableCell>{product.stock}</TableCell>
+                <TableCell>
+                  ${product.price.toFixed(2)}
+                  {product.variations && product.variations.length > 1 && (
+                    <span className="text-xs text-muted-foreground"> - ${Math.max(...product.variations.map(v => v.price)).toFixed(2)}</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <span className={product.stock > 0 ? 'text-success' : 'text-destructive'}>
+                    {product.stock}
+                  </span>
+                </TableCell>
                 <TableCell>
                   <Badge variant={product.status === 'active' ? 'default' : 'secondary'}>
                     {product.status}
