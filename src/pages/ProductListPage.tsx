@@ -1,46 +1,53 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Product, initialProducts } from '@/lib/productData';
 import { ProductList } from '@/components/ProductList';
-import { ProductModal } from '@/components/ProductModal';
 import { toast } from 'sonner';
 
+const STORAGE_KEY = 'ecom_products';
+
+const getProducts = (): Product[] => {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  return stored ? JSON.parse(stored) : initialProducts;
+};
+
+const saveProducts = (products: Product[]) => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+};
+
 export default function ProductListPage() {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const navigate = useNavigate();
+  const [products, setProducts] = useState<Product[]>(getProducts());
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setProducts(getProducts());
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    const interval = setInterval(() => {
+      setProducts(getProducts());
+    }, 500);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
 
   const handleAdd = () => {
-    setEditingProduct(null);
-    setModalOpen(true);
+    navigate('/products/add');
   };
 
   const handleEdit = (product: Product) => {
-    setEditingProduct(product);
-    setModalOpen(true);
+    navigate(`/products/edit/${product.id}`);
   };
 
   const handleDelete = (id: string) => {
-    setProducts(products.filter(p => p.id !== id));
+    const updatedProducts = products.filter(p => p.id !== id);
+    setProducts(updatedProducts);
+    saveProducts(updatedProducts);
     toast.success('Product deleted successfully');
-  };
-
-  const handleSave = (productData: Omit<Product, 'id' | 'createdAt'>) => {
-    if (editingProduct) {
-      setProducts(products.map(p => 
-        p.id === editingProduct.id 
-          ? { ...productData, id: p.id, createdAt: p.createdAt }
-          : p
-      ));
-      toast.success('Product updated successfully');
-    } else {
-      const newProduct: Product = {
-        ...productData,
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString().split('T')[0]
-      };
-      setProducts([...products, newProduct]);
-      toast.success('Product added successfully');
-    }
   };
 
   return (
@@ -57,13 +64,6 @@ export default function ProductListPage() {
         onEdit={handleEdit}
         onDelete={handleDelete}
         onAdd={handleAdd}
-      />
-
-      <ProductModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSave={handleSave}
-        product={editingProduct}
       />
     </div>
   );
