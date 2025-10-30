@@ -22,6 +22,7 @@ export interface Product {
   description: string;
   sku: string;
   createdAt: string;
+  updatedAt?: string;
   variations?: ProductVariation[];
 }
 

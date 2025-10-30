@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import ProductListPage from "./pages/ProductListPage";
 import ProductFormPage from "./pages/ProductFormPage";
+import ProductDetailPage from "./pages/ProductDetailPage";
 import Categories from "./pages/Categories";
 import Sales from "./pages/Sales";
 import Customers from "./pages/Customers";
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="products/list" element={<ProductListPage />} />
             <Route path="products/add" element={<ProductFormPage />} />
             <Route path="products/edit/:id" element={<ProductFormPage />} />
+            <Route path="products/:id" element={<ProductDetailPage />} />
             <Route path="products/categories" element={<Categories />} />
             <Route path="sales" element={<Sales />} />
             <Route path="customers" element={<Customers />} />

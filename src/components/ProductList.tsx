@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Product, ProductVariation } from '@/lib/productData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, Eye } from 'lucide-react';
 
 interface ProductListProps {
   products: Product[];
@@ -28,6 +29,7 @@ interface ProductListProps {
 }
 
 export function ProductList({ products, onEdit, onDelete, onAdd }: ProductListProps) {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -134,7 +136,16 @@ export function ProductList({ products, onEdit, onDelete, onAdd }: ProductListPr
                     <Button
                       variant="ghost"
                       size="icon"
+                      onClick={() => navigate(`/products/${product.id}`)}
+                      title="View Details"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => onEdit(product)}
+                      title="Edit"
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -142,6 +153,7 @@ export function ProductList({ products, onEdit, onDelete, onAdd }: ProductListPr
                       variant="ghost"
                       size="icon"
                       onClick={() => onDelete(product.id)}
+                      title="Delete"
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
@@ -196,6 +208,15 @@ export function ProductList({ products, onEdit, onDelete, onAdd }: ProductListPr
             </div>
 
             <div className="flex gap-2 pt-2 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate(`/products/${product.id}`)}
+                className="flex-1"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                View
+              </Button>
               <Button
                 variant="outline"
                 size="sm"

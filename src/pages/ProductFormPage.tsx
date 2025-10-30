@@ -48,10 +48,46 @@ export default function ProductFormPage() {
   });
 
   const [imageInput, setImageInput] = useState('');
+  const [dragActive, setDragActive] = useState(false);
 
   const availableAttributes = formData.category 
     ? categoryAttributes[formData.category] || []
     : [];
+
+  const handleFileUpload = (files: FileList | null) => {
+    if (files) {
+      Array.from(files).forEach(file => {
+        if (file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const result = e.target?.result as string;
+            setFormData(prev => ({
+              ...prev,
+              images: [...prev.images, result]
+            }));
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+    }
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    handleFileUpload(e.dataTransfer.files);
+  };
 
   const addImage = () => {
     if (imageInput.trim()) {
@@ -112,10 +148,22 @@ export default function ProductFormPage() {
       return;
     }
 
+    const now = new Date();
+    const dateTime = now.toLocaleString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+
     const product: Product = {
       ...formData,
       id: isEdit ? id : Date.now().toString(),
-      createdAt: existingProduct?.createdAt || new Date().toISOString().split('T')[0]
+      createdAt: existingProduct?.createdAt || dateTime,
+      updatedAt: isEdit ? dateTime : undefined
     };
 
     let updatedProducts: Product[];
@@ -157,7 +205,7 @@ export default function ProductFormPage() {
             <CardTitle>Basic Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Product Name *</Label>
                 <Input
@@ -259,11 +307,40 @@ export default function ProductFormPage() {
             <CardTitle>Product Images *</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Drag and Drop Area */}
+            <div
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                dragActive ? 'border-primary bg-primary/5' : 'border-border'
+              }`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+            >
+              <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-sm font-medium mb-2">Drag and drop images here</p>
+              <p className="text-xs text-muted-foreground mb-4">or</p>
+              <label htmlFor="file-upload" className="cursor-pointer">
+                <Button type="button" variant="outline" asChild>
+                  <span>Browse Files</span>
+                </Button>
+                <input
+                  id="file-upload"
+                  type="file"
+                  className="hidden"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => handleFileUpload(e.target.files)}
+                />
+              </label>
+            </div>
+
+            {/* URL Input Option */}
             <div className="flex gap-2">
               <Input
                 value={imageInput}
                 onChange={(e) => setImageInput(e.target.value)}
-                placeholder="Enter image URL"
+                placeholder="Or enter image URL"
                 onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addImage())}
               />
               <Button type="button" onClick={addImage}>
@@ -311,7 +388,7 @@ export default function ProductFormPage() {
               {formData.variations.map((variation, index) => (
                 <Card key={variation.id}>
                   <CardContent className="pt-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {availableAttributes.map(attr => (
                         <div key={attr} className="space-y-2">
                           <Label>{attr}</Label>
