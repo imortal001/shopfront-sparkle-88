@@ -19,7 +19,7 @@ export function Layout() {
         <AppSidebar />
         <div className="flex-1 flex flex-col">
           <Header theme={theme} onToggleTheme={toggleTheme} />
-          <main className="flex-1 p-6 bg-background">
+          <main className="flex-1 p-3 md:p-6 bg-background">
             <Outlet />
           </main>
         </div>

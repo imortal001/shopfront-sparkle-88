@@ -48,9 +48,9 @@ export function ProductList({ products, onEdit, onDelete, onAdd }: ProductListPr
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-        <div className="flex gap-2 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+        <div className="flex gap-2 flex-1">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search products..."
@@ -60,7 +60,7 @@ export function ProductList({ products, onEdit, onDelete, onAdd }: ProductListPr
             />
           </div>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-32 sm:w-40">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
@@ -78,7 +78,8 @@ export function ProductList({ products, onEdit, onDelete, onAdd }: ProductListPr
         </Button>
       </div>
 
-      <div className="border rounded-lg bg-card">
+      {/* Desktop Table View */}
+      <div className="hidden md:block border rounded-lg bg-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -152,13 +153,80 @@ export function ProductList({ products, onEdit, onDelete, onAdd }: ProductListPr
         </Table>
       </div>
 
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-4">
+        {paginatedProducts.map((product) => (
+          <div key={product.id} className="border rounded-lg bg-card p-4 space-y-3">
+            <div className="flex gap-3">
+              <img 
+                src={product.images[0]} 
+                alt={product.name}
+                className="w-20 h-20 object-cover rounded"
+              />
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium truncate">{product.name}</h3>
+                <p className="text-sm text-muted-foreground">{product.sku}</p>
+                <Badge variant={product.status === 'active' ? 'default' : 'secondary'} className="mt-1">
+                  {product.status}
+                </Badge>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <span className="text-muted-foreground">Category:</span>
+                <p className="font-medium">{product.category}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Price:</span>
+                <p className="font-medium">${product.price.toFixed(2)}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Stock:</span>
+                <p className={`font-medium ${product.stock > 0 ? 'text-success' : 'text-destructive'}`}>
+                  {product.stock}
+                </p>
+              </div>
+              {product.variations && product.variations.length > 0 && (
+                <div>
+                  <span className="text-muted-foreground">Variations:</span>
+                  <p className="font-medium">{product.variations.length}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 pt-2 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onEdit(product)}
+                className="flex-1"
+              >
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onDelete(product.id)}
+                className="flex-1 text-destructive hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground text-center sm:text-left">
           Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredProducts.length)} of {filteredProducts.length} products
         </p>
         <div className="flex gap-2">
           <Button
             variant="outline"
+            size="sm"
             onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
             disabled={currentPage === 1}
           >
@@ -166,6 +234,7 @@ export function ProductList({ products, onEdit, onDelete, onAdd }: ProductListPr
           </Button>
           <Button
             variant="outline"
+            size="sm"
             onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
             disabled={currentPage === totalPages}
           >

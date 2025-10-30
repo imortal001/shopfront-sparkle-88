@@ -114,7 +114,7 @@ export function ProductModal({ open, onClose, onSave, product }: ProductModalPro
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Product Name</Label>
                 <Input
@@ -135,7 +135,7 @@ export function ProductModal({ open, onClose, onSave, product }: ProductModalPro
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <Select
@@ -169,7 +169,7 @@ export function ProductModal({ open, onClose, onSave, product }: ProductModalPro
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="price">Price</Label>
                 <Input
@@ -231,7 +231,7 @@ export function ProductModal({ open, onClose, onSave, product }: ProductModalPro
                 {showVariations && (
                   <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
                     {variations.map((variation, index) => (
-                      <div key={variation.id} className="grid grid-cols-2 gap-3 p-3 border rounded bg-background">
+                      <div key={variation.id} className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 border rounded bg-background">
                         {getAttributesForCategory().map((attr) => (
                           <div key={attr} className="space-y-1">
                             <Label className="text-xs capitalize">{attr}</Label>
