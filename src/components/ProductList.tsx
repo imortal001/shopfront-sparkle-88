@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Product, ProductVariation } from '@/lib/productData';
+import { Product } from '@/hooks/useProducts';
+import { ProductVariation } from '@/lib/productData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -100,7 +101,7 @@ export function ProductList({ products, onEdit, onDelete, onAdd }: ProductListPr
               <TableRow key={product.id}>
                 <TableCell>
                   <img 
-                    src={product.images[0]} 
+                    src={product.images?.[0]?.image_url || '/placeholder.svg'} 
                     alt={product.name}
                     className="w-12 h-12 object-cover rounded"
                   />
@@ -171,7 +172,7 @@ export function ProductList({ products, onEdit, onDelete, onAdd }: ProductListPr
           <div key={product.id} className="border rounded-lg bg-card p-4 space-y-3">
             <div className="flex gap-3">
               <img 
-                src={product.images[0]} 
+                src={product.images?.[0]?.image_url || '/placeholder.svg'} 
                 alt={product.name}
                 className="w-20 h-20 object-cover rounded"
               />

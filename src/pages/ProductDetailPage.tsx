@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Product, initialProducts } from '@/lib/productData';
+import { supabase } from '@/integrations/supabase/client';
+import { Product } from '@/hooks/useProducts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,42 +19,81 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
-const STORAGE_KEY = 'ecom_products';
-
-const getProducts = (): Product[] => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  return stored ? JSON.parse(stored) : initialProducts;
-};
-
-const saveProducts = (products: Product[]) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
-};
-
 export default function ProductDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const [product, setProduct] = useState<Product | null>(null);
   const [selectedImage, setSelectedImage] = useState<string>('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const products = getProducts();
-    const foundProduct = products.find(p => p.id === id);
-    if (foundProduct) {
-      setProduct(foundProduct);
-      setSelectedImage(foundProduct.images[0] || '');
-    } else {
+    fetchProduct();
+  }, [id]);
+
+  const fetchProduct = async () => {
+    try {
+      const { data: productData, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      const { data: images } = await supabase
+        .from('product_images')
+        .select('*')
+        .eq('product_id', id)
+        .order('display_order');
+
+      const { data: variations } = await supabase
+        .from('product_variations')
+        .select('*')
+        .eq('product_id', id);
+
+      const fullProduct = {
+        ...productData,
+        images: images || [],
+        variations: variations || []
+      };
+
+      setProduct(fullProduct);
+      setSelectedImage(images?.[0]?.image_url || '');
+    } catch (error: any) {
       toast.error('Product not found');
       navigate('/products/list');
+    } finally {
+      setLoading(false);
     }
-  }, [id, navigate]);
-
-  const handleDelete = () => {
-    const products = getProducts();
-    const updatedProducts = products.filter(p => p.id !== id);
-    saveProducts(updatedProducts);
-    toast.success('Product deleted successfully');
-    navigate('/products/list');
   };
+
+  const handleDelete = async () => {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast.success('Product deleted successfully');
+      navigate('/products/list');
+    } catch (error: any) {
+      toast.error('Failed to delete product');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!product) {
+    return null;
+  }
 
   if (!product) {
     return <div>Loading...</div>;
@@ -126,13 +166,13 @@ export default function ProductDetailPage() {
               {product.images.map((image, index) => (
                 <button
                   key={index}
-                  onClick={() => setSelectedImage(image)}
+                  onClick={() => setSelectedImage(image.image_url)}
                   className={`w-full h-20 rounded border overflow-hidden transition-all ${
-                    selectedImage === image ? 'ring-2 ring-primary' : 'hover:ring-2 ring-border'
+                    selectedImage === image.image_url ? 'ring-2 ring-primary' : 'hover:ring-2 ring-border'
                   }`}
                 >
                   <img
-                    src={image}
+                    src={image.image_url}
                     alt={`${product.name} ${index + 1}`}
                     className="w-full h-full object-cover"
                   />
@@ -170,12 +210,12 @@ export default function ProductDetailPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Created At</p>
-                  <p className="font-medium">{product.createdAt}</p>
+                  <p className="font-medium">{new Date(product.created_at).toLocaleString()}</p>
                 </div>
-                {product.updatedAt && (
+                {product.updated_at && (
                   <div>
                     <p className="text-sm text-muted-foreground">Updated At</p>
-                    <p className="font-medium">{product.updatedAt}</p>
+                    <p className="font-medium">{new Date(product.updated_at).toLocaleString()}</p>
                   </div>
                 )}
               </div>

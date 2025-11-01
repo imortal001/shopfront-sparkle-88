@@ -1,39 +1,10 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Product, initialProducts } from '@/lib/productData';
 import { ProductList } from '@/components/ProductList';
-import { toast } from 'sonner';
-
-const STORAGE_KEY = 'ecom_products';
-
-const getProducts = (): Product[] => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  return stored ? JSON.parse(stored) : initialProducts;
-};
-
-const saveProducts = (products: Product[]) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
-};
+import { useProducts, Product } from '@/hooks/useProducts';
 
 export default function ProductListPage() {
   const navigate = useNavigate();
-  const [products, setProducts] = useState<Product[]>(getProducts());
-
-  useEffect(() => {
-    const handleStorageChange = () => {
-      setProducts(getProducts());
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    const interval = setInterval(() => {
-      setProducts(getProducts());
-    }, 500);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
-    };
-  }, []);
+  const { products, loading, deleteProduct } = useProducts();
 
   const handleAdd = () => {
     navigate('/products/add');
@@ -44,11 +15,16 @@ export default function ProductListPage() {
   };
 
   const handleDelete = (id: string) => {
-    const updatedProducts = products.filter(p => p.id !== id);
-    setProducts(updatedProducts);
-    saveProducts(updatedProducts);
-    toast.success('Product deleted successfully');
+    deleteProduct(id);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 md:space-y-6">

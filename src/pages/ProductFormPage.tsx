@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Product, categoryAttributes, attributeOptions, initialProducts } from '@/lib/productData';
+import { supabase } from '@/integrations/supabase/client';
+import { categoryAttributes, attributeOptions } from '@/lib/productData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,60 +16,85 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Plus, X, Upload } from 'lucide-react';
 import { toast } from 'sonner';
-
-const STORAGE_KEY = 'ecom_products';
-
-const getProducts = (): Product[] => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  return stored ? JSON.parse(stored) : initialProducts;
-};
-
-const saveProducts = (products: Product[]) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
-};
+import { useAuth } from '@/hooks/useAuth';
 
 export default function ProductFormPage() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { user } = useAuth();
   const isEdit = !!id;
   
-  const [products, setProducts] = useState<Product[]>(getProducts());
-  const existingProduct = isEdit ? products.find(p => p.id === id) : null;
-
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: existingProduct?.name || '',
-    sku: existingProduct?.sku || '',
-    category: existingProduct?.category || '',
-    price: existingProduct?.price || 0,
-    stock: existingProduct?.stock || 0,
-    status: existingProduct?.status || 'active' as 'active' | 'inactive',
-    description: existingProduct?.description || '',
-    images: existingProduct?.images || [] as string[],
-    variations: existingProduct?.variations || []
+    name: '',
+    sku: '',
+    category: '',
+    price: 0,
+    stock: 0,
+    status: 'active' as 'active' | 'inactive',
+    description: '',
+    images: [] as File[],
+    imageUrls: [] as string[],
+    variations: [] as any[]
   });
 
-  const [imageInput, setImageInput] = useState('');
   const [dragActive, setDragActive] = useState(false);
 
   const availableAttributes = formData.category 
     ? categoryAttributes[formData.category] || []
     : [];
 
+  useEffect(() => {
+    if (isEdit && id) {
+      fetchProduct(id);
+    }
+  }, [id, isEdit]);
+
+  const fetchProduct = async (productId: string) => {
+    try {
+      const { data: product, error: productError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', productId)
+        .single();
+
+      if (productError) throw productError;
+
+      const { data: images } = await supabase
+        .from('product_images')
+        .select('*')
+        .eq('product_id', productId)
+        .order('display_order');
+
+      const { data: variations } = await supabase
+        .from('product_variations')
+        .select('*')
+        .eq('product_id', productId);
+
+      setFormData({
+        name: product.name,
+        sku: product.sku,
+        category: product.category,
+        price: product.price,
+        stock: product.stock,
+        status: product.status,
+        description: product.description || '',
+        images: [],
+        imageUrls: images?.map(img => img.image_url) || [],
+        variations: variations || []
+      });
+    } catch (error: any) {
+      toast.error('Failed to fetch product: ' + error.message);
+    }
+  };
+
   const handleFileUpload = (files: FileList | null) => {
     if (files) {
-      Array.from(files).forEach(file => {
-        if (file.type.startsWith('image/')) {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const result = e.target?.result as string;
-            setFormData(prev => ({
-              ...prev,
-              images: [...prev.images, result]
-            }));
-          };
-          reader.readAsDataURL(file);
-        }
-      });
+      const newFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+      setFormData(prev => ({
+        ...prev,
+        images: [...prev.images, ...newFiles]
+      }));
     }
   };
 
@@ -89,33 +115,31 @@ export default function ProductFormPage() {
     handleFileUpload(e.dataTransfer.files);
   };
 
-  const addImage = () => {
-    if (imageInput.trim()) {
-      setFormData(prev => ({
-        ...prev,
-        images: [...prev.images, imageInput.trim()]
-      }));
-      setImageInput('');
-    }
-  };
-
-  const removeImage = (index: number) => {
+  const removeNewImage = (index: number) => {
     setFormData(prev => ({
       ...prev,
       images: prev.images.filter((_, i) => i !== index)
     }));
   };
 
+  const removeExistingImage = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      imageUrls: prev.imageUrls.filter((_, i) => i !== index)
+    }));
+  };
+
   const addVariation = () => {
     const newVariation: any = {
-      id: Date.now().toString(),
+      id: `temp-${Date.now()}`,
       sku: `${formData.sku}-VAR-${formData.variations.length + 1}`,
       price: formData.price,
-      stock: 0
+      stock: 0,
+      attributes: {}
     };
 
     availableAttributes.forEach(attr => {
-      newVariation[attr] = '';
+      newVariation.attributes[attr] = '';
     });
 
     setFormData(prev => ({
@@ -127,9 +151,19 @@ export default function ProductFormPage() {
   const updateVariation = (index: number, field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
-      variations: prev.variations.map((v, i) => 
-        i === index ? { ...v, [field]: value } : v
-      )
+      variations: prev.variations.map((v, i) => {
+        if (i === index) {
+          if (field.startsWith('attr_')) {
+            const attrName = field.replace('attr_', '');
+            return {
+              ...v,
+              attributes: { ...v.attributes, [attrName]: value }
+            };
+          }
+          return { ...v, [field]: value };
+        }
+        return v;
+      })
     }));
   };
 
@@ -140,42 +174,123 @@ export default function ProductFormPage() {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.sku || !formData.category || formData.images.length === 0) {
-      toast.error('Please fill all required fields and add at least one image');
+    if (!formData.name || !formData.sku || !formData.category) {
+      toast.error('Please fill all required fields');
       return;
     }
 
-    const now = new Date();
-    const dateTime = now.toLocaleString('en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true
-    });
-
-    const product: Product = {
-      ...formData,
-      id: isEdit ? id : Date.now().toString(),
-      createdAt: existingProduct?.createdAt || dateTime,
-      updatedAt: isEdit ? dateTime : undefined
-    };
-
-    let updatedProducts: Product[];
-    if (isEdit) {
-      updatedProducts = products.map(p => p.id === id ? product : p);
-    } else {
-      updatedProducts = [...products, product];
+    if (!isEdit && formData.images.length === 0) {
+      toast.error('Please add at least one product image');
+      return;
     }
-    
-    saveProducts(updatedProducts);
-    toast.success(isEdit ? 'Product updated successfully' : 'Product added successfully');
-    navigate('/products/list');
+
+    if (!user) {
+      toast.error('You must be logged in');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      let productId = id;
+
+      // Create or update product
+      if (isEdit) {
+        const { error } = await supabase
+          .from('products')
+          .update({
+            name: formData.name,
+            sku: formData.sku,
+            category: formData.category,
+            price: formData.price,
+            stock: formData.stock,
+            status: formData.status,
+            description: formData.description,
+          })
+          .eq('id', id);
+
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase
+          .from('products')
+          .insert({
+            user_id: user.id,
+            name: formData.name,
+            sku: formData.sku,
+            category: formData.category,
+            price: formData.price,
+            stock: formData.stock,
+            status: formData.status,
+            description: formData.description,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        productId = data.id;
+      }
+
+      // Upload new images
+      if (formData.images.length > 0) {
+        for (let i = 0; i < formData.images.length; i++) {
+          const file = formData.images[i];
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${productId}/${Date.now()}-${i}.${fileExt}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('product-images')
+            .upload(fileName, file);
+
+          if (uploadError) throw uploadError;
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('product-images')
+            .getPublicUrl(fileName);
+
+          await supabase
+            .from('product_images')
+            .insert({
+              product_id: productId,
+              image_url: publicUrl,
+              display_order: formData.imageUrls.length + i
+            });
+        }
+      }
+
+      // Handle variations
+      if (isEdit) {
+        // Delete existing variations
+        await supabase
+          .from('product_variations')
+          .delete()
+          .eq('product_id', productId);
+      }
+
+      // Insert new variations
+      if (formData.variations.length > 0) {
+        const variationsToInsert = formData.variations.map(v => ({
+          product_id: productId,
+          sku: v.sku,
+          price: v.price,
+          stock: v.stock,
+          attributes: v.attributes
+        }));
+
+        await supabase
+          .from('product_variations')
+          .insert(variationsToInsert);
+      }
+
+      toast.success(isEdit ? 'Product updated successfully' : 'Product added successfully');
+      navigate('/products/list');
+    } catch (error: any) {
+      toast.error('Error saving product: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -335,26 +450,14 @@ export default function ProductFormPage() {
               </label>
             </div>
 
-            {/* URL Input Option */}
-            <div className="flex gap-2">
-              <Input
-                value={imageInput}
-                onChange={(e) => setImageInput(e.target.value)}
-                placeholder="Or enter image URL"
-                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addImage())}
-              />
-              <Button type="button" onClick={addImage}>
-                <Upload className="h-4 w-4 mr-2" />
-                Add
-              </Button>
-            </div>
+            {/* URL Input Option - Removed */}
 
-            {formData.images.length > 0 && (
+            {(formData.imageUrls.length > 0 || formData.images.length > 0) && (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {formData.images.map((image, index) => (
-                  <div key={index} className="relative group">
+                {formData.imageUrls.map((url, index) => (
+                  <div key={`existing-${index}`} className="relative group">
                     <img
-                      src={image}
+                      src={url}
                       alt={`Product ${index + 1}`}
                       className="w-full h-32 object-cover rounded border"
                     />
@@ -363,7 +466,25 @@ export default function ProductFormPage() {
                       variant="destructive"
                       size="icon"
                       className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => removeImage(index)}
+                      onClick={() => removeExistingImage(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                {formData.images.map((file, index) => (
+                  <div key={`new-${index}`} className="relative group">
+                    <img
+                      src={URL.createObjectURL(file)}
+                      alt={`New ${index + 1}`}
+                      className="w-full h-32 object-cover rounded border"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => removeNewImage(index)}
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -393,8 +514,8 @@ export default function ProductFormPage() {
                         <div key={attr} className="space-y-2">
                           <Label>{attr}</Label>
                           <Select
-                            value={variation[attr as keyof typeof variation] as string || ''}
-                            onValueChange={(value) => updateVariation(index, attr, value)}
+                            value={variation.attributes?.[attr] || ''}
+                            onValueChange={(value) => updateVariation(index, `attr_${attr}`, value)}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder={`Select ${attr}`} />
@@ -459,17 +580,17 @@ export default function ProductFormPage() {
           </Card>
         )}
 
-        {/* Form Actions */}
         <div className="flex gap-4 justify-end">
           <Button
             type="button"
             variant="outline"
             onClick={() => navigate('/products/list')}
+            disabled={loading}
           >
             Cancel
           </Button>
-          <Button type="submit">
-            {isEdit ? 'Update Product' : 'Add Product'}
+          <Button type="submit" disabled={loading}>
+            {loading ? 'Saving...' : (isEdit ? 'Update Product' : 'Add Product')}
           </Button>
         </div>
       </form>
